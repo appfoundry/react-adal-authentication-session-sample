@@ -44,4 +44,19 @@ const timeoutMonitor = (response) => {
 }
 instance.addMonitor(timeoutMonitor)
 
+// Add a check before each request, to see if our session expiry isn't passed and if so, abort the request and log out
+instance.addRequestTransform(request => {
+  // check if token has expired or is null.
+  // If it is null, it means that it has already expired in another tab of the browser and the user has already been logged out.
+  if (SessionHelper.isTokenExpiredOrNull) {
+    // clear the session helper
+    SessionHelper.removeExpiry()
+    SessionHelper.stopExpiryTimeout()
+    // log out user
+    AuthContext.logOut()
+    // cancel the request because the logout is in a race with the request being sent out
+    cancelSource.cancel()
+  }
+})
+
 export default instance
