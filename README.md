@@ -174,13 +174,13 @@ And that’s it! At this moment, your React SPA is ready to use authentication a
 ## Special thanks to
 I would like to take a brief moment to thank [magnuf for his example on github](https://github.com/AzureAD/azure-activedirectory-library-for-js/issues/481), originally helping me on my way figuring all of this out.
 
-## Want to do adjustments to the session timeout?
+# Want to do adjustments to the session timeout?
 
 Then follow [this link](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/) and/or the [Session-Management-with-ADAL-in-React-SPA](https://github.com/appfoundry/react-adal-authentication-session-sample/tree/Session-Management-with-ADAL-in-React-SPA) branch to part 2 of this tutorial!
 
-# Blogpost
+# Blogposts
 
-A blogpost of this tutorial can be found [here](https://www.appfoundry.be/blog/2018/11/24/authentication-with-adal-in-react-single-page-applications/).
+This tutorial is part of a blogpost duology, of which the first part can be found [here](https://www.appfoundry.be/blog/2018/11/24/authentication-with-adal-in-react-single-page-applications/) (and the second one's links are right above).
 
 ## License
 
