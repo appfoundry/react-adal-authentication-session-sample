@@ -1,12 +1,20 @@
 // src/services/Api.js
 import ApiSauce from 'apisauce'
+import { CancelToken } from 'axios'
 
 import ApiConfig from '../config/ApiConfig'
 import AdalConfig from '../config/AdalConfig'
 import AuthContext from './Auth'
 import SessionHelper from './Session'
 
-const instance = ApiSauce.create(ApiConfig)
+// set up cancel token from axios to be able to cancel network requests
+const cancelSource = CancelToken.source() // more info: https://github.com/axios/axios#cancellation
+const ApiConfigWithCancelToken = {
+  ...ApiConfig,
+  cancelToken: cancelSource.token
+}
+
+const instance = ApiSauce.create(ApiConfigWithCancelToken)
 
 // Add a request interceptor
 instance.addAsyncRequestTransform((config) => {
