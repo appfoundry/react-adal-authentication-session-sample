@@ -1,14 +1,14 @@
 // src/services/Api.js
-import axios from 'axios'
+import ApiSauce from 'apisauce'
 
 import ApiConfig from '../config/ApiConfig'
 import AdalConfig from '../config/AdalConfig'
 import AuthContext from './Auth'
 
-const instance = axios.create(ApiConfig)
+const instance = ApiSauce.create(ApiConfig)
 
 // Add a request interceptor
-instance.interceptors.request.use((config) => {
+instance.addAsyncRequestTransform((config) => {
   // Check and acquire a token before the request is sent
   return new Promise((resolve, reject) => {
     AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
