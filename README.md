@@ -163,7 +163,13 @@ And that's it! Your SPA now has
 
 # Blogpost
 
-A blogpost of this tutorial can be found [here](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/).
+# Want to know how to do authentication with ADAL in React SPAs?
+
+Then follow [this link](https://www.appfoundry.be/blog/2018/11/24/authentication-with-adal-in-react-single-page-applications/) and/or the [Authentication-with-ADAL-in-React-SPA](https://github.com/appfoundry/react-adal-authentication-session-sample/tree/Authentication-with-ADAL-in-React-SPA) branch to the first part of this tutorial!
+
+# Blogposts
+
+This tutorial is part of a blogpost duology, of which the second part can be found [here](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/) (and the first one's links are right above).
 
 ## License
 
