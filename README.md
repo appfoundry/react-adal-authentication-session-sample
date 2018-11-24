@@ -1,180 +1,169 @@
 # react-adal-authentication-session-sample
-A tutorial on how to implement Authentication with ADAL in React Single Page Applications.
+A tutorial on how to implement Authentication and Session Management with ADAL in React Single Page Applications.
+
+This branch is the [second part](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/) of the tutorial regarding React SPA and Authentication and Session Management. For the first part please check [here](https://www.appfoundry.be/blog/2018/11/24/authentication-with-adal-in-react-single-page-applications/) and the [Authentication-with-ADAL-in-React-SPA](https://github.com/appfoundry/react-adal-authentication-session-sample/tree/Authentication-with-ADAL-in-React-SPA) branch.
 
 # Tutorial
 
-## First steps
+Before we start, I want to let you know that instead of axios we will be using [ApiSauce](https://github.com/infinitered/apisauce). It's not that different than axios since it is, and I quote, “a low-fat wrapper for the amazing axios http client library”. Essentially, it will make things easier and faster to achieve for us. Shout out to [@skellock](https://twitter.com/skellock) for this helpful library!
 
-1. Initialize a React app, we used [Create React App](https://facebook.github.io/create-react-app/docs/getting-started) in this sample to reduce setup and in this case to be able to test implementations faster.
-2. Add the following plugins:
-  * [adal-angular](https://github.com/AzureAD/azure-activedirectory-library-for-js) (at the time of writing this tutorial the version was v1.0.17)
-  * [axios](https://github.com/axios/axios) (at the time of writing this tutorial the version was v0.18.0)
-  * Optional: [apisauce](https://github.com/infinitered/apisauce) (at the time of writing this tutorial the version was v0.16.0) (also contains the *axios* package so there’s no need to install *axios* separately if you install and use *apisauce*)
-3. Set up an AD in Azure with a **user or two to test with**
-4. Set up the necessary application project(s) in Azure, of which we will use the **tenant ID**, the **application ID** of the **client web app**, and the **application ID** of the **API app**.
-5. Set up a **config file** in your React application where we can place our Azure IDs and other configuration parameters.
+To make the switch easier I have made an “in between tutorial”-branch called [with-ApiSauce](https://github.com/appfoundry/react-adal-authentication-session-sample/tree/with-ApiSauce). You can use it to see which code of part 1 has been refactored with ApiSauce.
+
+## Part 2
+
+On to part 2: we will add an automatic logout after *30 minutes* (configurable), but we will keep the session valid and postpone the expiry time as long as the user is actively doing network requests in those 30 minutes.
+
+To achieve this we will save an expiry time value in the local- or sessionstorage and with each network request we will check if that time hasn't expired yet, plus we'll add (and reset) a timer function which will effectively log out the user automatically after 30 minutes of inactivity.
+
+I have written a npm package called [Session-Helper](https://www.npmjs.com/package/session-helper) containg a bit of code to help us out with that. I won't go into much detail as I think its readme is self-explanatory enough.
+
+
+## Initialize Session-Helper
+
+Add a session config file for the session helper:
 ```js
-// src/config/AdalConfig.js
+// src/config/SessionConfig.js
 export default {
-  clientId: 'ENTER THE APPLICATION ID OF THE REGISTERED WEB APP ON AZURE',
-  endpoints: {
-    api: "ENTER THE APPLICATION ID OF THE REGISTERED API APP ON AZURE" // Necessary for CORS requests, for more info see https://github.com/AzureAD/azure-activedirectory-library-for-js/wiki/CORS-usage
-  },
-  // 'tenant' is the Azure AD instance.
-  tenant: 'ENTER YOUR TENANT ID',
-  // 'cacheLocation' is set to 'sessionStorage' by default (see https://github.com/AzureAD/azure-activedirectory-library-for-js/wiki/Config-authentication-context#configurable-options).
-  // We change it to'localStorage' because 'sessionStorage' does not work when our app is served on 'localhost' in development.
-  cacheLocation: 'localStorage'
-}
-```
-> TIP: Use custom environment variables here! See [create-react-app's guide](https://facebook.github.io/create-react-app/docs/adding-custom-environment-variables) for more information.
-
-## Initialize Adal Instance
-Next up, we will initialize the adal instance with the config we just defined.
-
-First, some necessary imports:
-```js
-// src/services/Auth.js
-import AuthenticationContext from 'adal-angular'
-import AdalConfig from '../config/AdalConfig'
-```
-
-Second, we add some code so that the adal library can log to console.
-```js
-// We use this to enable logging in the adal library. When you're building for production, you should know that it's best to disable the logging.
-window.Logging.log = function(message) {
-  console.log(message); // this enables logging to the console
-}
-window.Logging.level = 2 // 0 = only error, 1 = up to warnings, 2 = up to info, 3 = up to verbose
-```
-
-Then, we initialize the adal instance by combining the *AuthenticationContext* class, exported from the adal library, with the *AdalConfig* we defined in the previous step.
-```js
-// Initialize the authentication
-export default new AuthenticationContext(AdalConfig)
-```
-
-> Don't worry if `export default new AuthenticationContext(AdalConfig)` would initialize a new instance each time you import it -> webpack will build all our javascript code in one single file and imports will reference to single instances respectively.
-
-## Initialize axios instance
-
-To make sure our network requests use the correct base url of the API, we create a config file with a certain *baseURL* parameter which we'll later use to initialize an axios instance.
-```js
-// src/config/ApiConfig.js
-export default {
-  baseURL: "ENTER BASE URL OF API HERE" // something like "http://my-host-name.xyz/api"
+  uuid: "ENTER UUID HERE", // replace with your own uuid, for example using https://www.uuidgenerator.net
+  timeoutInMinutes: 30,
+  cacheLocation: 'localStorage',
+  debugMode: true // boolean to show or hide console log statements, useful while developing
 }
 ```
 
-Next, use the *ApiConfig* to initialize an axios instance like so:
+We'll create a session service which will initialize the session helper with our session configuration, and export it for usage in our application.
+
+In practice this results in the following file:
 ```js
-// src/services/Api.js
-import axios from 'axios'
+// src/services/Session.js
+import SessionHelper from 'session-helper'
+import SessionConfig from '../config/SessionConfig'
 
-import ApiConfig from '../config/ApiConfig'
-
-const instance = axios.create(ApiConfig)
-
-export default instance
+export default new SessionHelper(SessionConfig.uuid,
+                                 SessionConfig.cacheLocation,
+                                 SessionConfig.timeoutInMinutes,
+                                 SessionConfig.debugMode)
 ```
+> Don't worry if `export default new SessionHelper(SessionConfig...)` would initialize a new instance each time you import it -> webpack will build all our javascript code in one single file and imports will reference to single instances respectively.
 
-Finally, we will import the axios instance, in whichever components we need it, to make api calls, for example in the *componentDidMount* section of the 'App' component:
-```js
-// src/App.js
-import Api from './services/Api'
+## Stop automatic login
 
-class App extends Component {
-  componentDidMount() {
-    // Perform a network request on mount to easily test our setup
-    Api.get('/todos')
-  }
-```
-
-## Render the React Application or redirect to login
-
-After we’ve initialized everything we need, we can start coding the logic to successfully render the React application or to redirect the user to Microsoft’s login page.
-
-In index.js, import the AuthContext from our authentication service and the adal config to be able to use the IDs.
+To achieve full session management, we will first stop the automatic login by [ADAL](https://github.com/AzureAD/azure-activedirectory-library-for-js). Edit the index.js file and add a check if the expiry time in the storage has not yet passed:
 ```js
 // src/index.js
-import AdalConfig from './config/AdalConfig'
-import AuthContext from './services/Auth'
-```
-
-Add the following code to let the **adal library handle any possible callbacks** after logging in or (re-)acquiring tokens:
-```js
-// Handle possible callbacks on id_token or access_token
-AuthContext.handleWindowCallback()
-```
-
-Then we'll add some extra logic that we will only run when we are on the **parent window** and not in an iframe. If we were to allow it to run in iframes, which are used by adal to acquire tokens, then we would be stuck with multiple instances of our react app and we don’t want that.
-
-If we have **no logged in user** then we will **redirect the user to Microsoft's login page**. If we have a **logged in user** then we will **acquire an access token for our API** to see that everything works, **and** we will **render our React application**.
-
-This results in the following code:
-
-```js
-// Extra callback logic, only in the actual application, not in iframes in the app
-if ((window === window.parent) && window === window.top && !AuthContext.isCallback(window.location.hash)) {
-  // Having both of these checks is to prevent having a token in localstorage, but no user.
-  if (!AuthContext.getCachedToken(AdalConfig.clientId) || !AuthContext.getCachedUser()) {
-    AuthContext.login()
-    // or render something that everyone can see
-    // ReactDOM.render(<PublicPartOfApp />, document.getElementById('root'))
-  } else {
-    AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
-      if (token) {
-        ReactDOM.render(<App />, document.getElementById('root'))
-      }
-    })
+// Extra callback logic to be called only in the actual application, not in iframes in the app
+if (window === window.parent && window === window.top && !AuthContext.isCallback(window.location.hash)) {
+  if (!SessionHelper.isTokenExpired) { // check if the expiry time in the storage has not yet passed
+    ...
+  } else { // clear the expiry value from storage, stop the timeout function and logout the user
+    SessionHelper.removeExpiry()
+    SessionHelper.stopExpiryTimeout()
+    AuthContext.logOut()
   }
 }
 ```
-> As you can see in the comments in the code, you can also choose to show a public page even when there is no logged in user. Instead of calling *AuthContext.login()* you can also render another React instance, for example a public landing page which has a specific button to be able to login later on...
+> By checking if our expiry value has expired we can logout a previously logged in user, effectively blocking automatic logins. In practice, this happens when a user was logged in before and closed the tab before the automatic logout function was called.
 
-## Add interceptor to network requests
+Following on that, if a user is logged in and we are ready to render the authenticated part of our application, set the expiry value in the storage and start the timeout to automatically logout.
 
-To make sure our network requests to the backend API remain authenticated, we will add some logic to our axios instance.
+You could also do these things later in some componentDidMount function in your app, but then it's possible that it ("it" being the lack of an expiry value in the storage before rendering the application) trips up logic protecting our authenticated backend calls.
 
-We will call adal’s *acquireToken* function each time a network request is made. Adal will return the valid access token or it will asynchronously fetch a new one if it is invalid. Once the token is available we will add it to the *Authorization* header of the network request.
+If the token is not expired or is null (while it actually should not be null, and expired) at the moment the timeout is triggered, we restart it to try again later (granted, this isn't handled that well but for a first version it'll do and we'll later see why). This can happen when an other tab has reset the expiry, but obviously can't reset the timer in the original tab, causing the original tab to be in a 'limbo' state: its user is logged out but the application is still shown. Restarting and retrying later is our way of making sure all tabs are, eventually, on the “login page” of Microsoft.
 
-First, don't forget the necessary imports:
+```js
+// src/index.js
+  AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
+        if (token) {
+          // Set the expiry time out 30 minutes from now
+          SessionHelper.setExpiry()
+          // At the initialisation of our app we start a session timeout function, which will be triggered after the amount of minutes set in our adal config.
+          // But first we'll provide a callback to execute at the timeout.
+          // On the callback we will check the token expiry time and log out the user if necessary.
+          SessionHelper.expiryTimeoutCallback = function() {
+            if (SessionHelper.isTokenExpiredOrNull) {
+              // clear the session helper
+              SessionHelper.removeExpiry()
+              SessionHelper.stopExpiryTimeout()
+              AuthContext.logOut()
+            } else {
+              SessionHelper.resetExpiryTimeout() // try again later
+            }
+          }
+          // Then we'll start the timer
+          SessionHelper.startExpiryTimeout()
+          // After we've prepared everything for the session helper we render the authenticated part of our app
+          ReactDOM.render(<App />, document.getElementById('root'))
+        }
+      })
+```
+> In another step we will also make sure that users can't do any network requests in tabs which are in this 'limbo' situation. (See [Guardians of the limbo](#guardians-of-the-limbo) below)
+
+## I want to live forever
+
+To prolong the session window, the expiry and the timeout should be reset after each network request. We'll add a monitor to the api service which will do exactly this:
 ```js
 // src/services/Api.js
-import AdalConfig from '../config/AdalConfig'
-import AuthContext from './Auth'
+// Add a monitor so that after each call the expiry and the timeout is reset
+const timeoutMonitor = (response) => {
+  // reset the expiry
+  SessionHelper.setExpiry()
+  // and reset the timeout function
+  SessionHelper.resetExpiryTimeout()
+}
+instance.addMonitor(timeoutMonitor)
+```
+> Don't forget to `import SessionHelper from './Session'` at the top of the file.
+
+## Guardians of the limbo
+
+Our final step is to block network requests when the expiry from our storage has passed. (See [Stop automatic login](#stop-automatic-login) above)
+
+We can add this protection by adding a [request transform](https://github.com/infinitered/apisauce#request-transforms), which will double check if the expiry from the session helper has been expired or is null (is null means that a user was already logged out, for example when there were multiple tabs of the SPA opened and one of them triggered the timeout after enough inactivity) in combination with the [CancelToken](https://github.com/axios/axios#cancellation) of axios. This CancelToken gives us the opportunity to block these network requests, just in case.
+
+First, we will set up the *CancelToken*, which we will need to import from axios, in the Api.js file under /services.
+```js
+// src/services/Api.js
+import { CancelToken } from 'axios'
 ```
 
-Then we can place the re-acquiring of tokens in a request [interceptor](https://github.com/axios/axios#interceptors) of the axios instance like so:
+Second, we will set it up to use later:
 ```js
-// src/services/Api.js
-// Add a request interceptor
-instance.interceptors.request.use((config) => {
-  // Check and acquire a token before the request is sent
-  return new Promise((resolve, reject) => {
-    AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
-      if (!!token) {
-        config.headers.Authorization = `Bearer ${token}`
-        resolve(config)
-      } else {
-        // Do something with error of acquiring the token
-        reject(config)
-      }
-    })
-  })
-}, function(error) {
-  // Do something with error of the request
-  return Promise.reject(error)
+// set up cancel token from axios to be able to cancel network requests
+const cancelSource = CancelToken.source() // more info: https://github.com/axios/axios#cancellation
+const ApiConfigWithCancelToken = {
+  ...ApiConfig,
+  cancelToken: cancelSource.token
+}
+
+const instance = ApiSauce.create(ApiConfigWithCancelToken)
+```
+
+Then we can set up the request transform so that it will perform the check before each network request to the API. If the expiry has passed or is null, we will clean our session helper, logout the user and cancel the request. You would think the user is logged out before a request could be completed by the API, but it's a race condition, so that's why it's important to effectively cancel the request.
+```js
+// Add check before each request, to see if our session expiry isn't passed and if so, abort the request and log out
+instance.addRequestTransform(request => {
+  // check if token has expired or is null.
+  // If it is null, it means that it has already expired in another tab of the browser and the user has already been logged out.
+  if (SessionHelper.isTokenExpiredOrNull) {
+    // clear the session helper
+    SessionHelper.removeExpiry()
+    SessionHelper.stopExpiryTimeout()
+    // log out user
+    AuthContext.logOut()
+    // cancel the request because the logout is in a race with the request being sent out
+    cancelSource.cancel()
+  }
 })
 ```
-And that’s it! At this moment, your React SPA is ready to use authentication and session management with the adal library and Azure's Active Directory!
-
-## Special thanks to
-I would like to take a brief moment to thank [magnuf for his example on github](https://github.com/AzureAD/azure-activedirectory-library-for-js/issues/481), originally helping me on my way figuring all of this out.
+And that's it! Your SPA now has
+* a session time of 30 minutes
+* which can be prolonged as long as the user is active
+* with automatic logout and blocking network requests once expired
+* and disables automatic login via ADAL!
 
 # Blogpost
 
-A blogpost of this tutorial can be found [here](https://www.appfoundry.be/blog/2018/11/24/authentication-with-adal-in-react-single-page-applications/).
+A blogpost of this tutorial can be found [here](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/).
 
 ## License
 
