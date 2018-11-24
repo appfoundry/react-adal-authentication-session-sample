@@ -4,6 +4,7 @@ import ApiSauce from 'apisauce'
 import ApiConfig from '../config/ApiConfig'
 import AdalConfig from '../config/AdalConfig'
 import AuthContext from './Auth'
+import SessionHelper from './Session'
 
 const instance = ApiSauce.create(ApiConfig)
 
@@ -25,5 +26,14 @@ instance.addAsyncRequestTransform((config) => {
   // Do something with error of the request
   return Promise.reject(error)
 })
+
+// Add a monitor so that after each call the expiry and the timeout is reset
+const timeoutMonitor = (response) => {
+  // reset the expiry
+  SessionHelper.setExpiry()
+  // and reset the timeout function
+  SessionHelper.resetExpiryTimeout()
+}
+instance.addMonitor(timeoutMonitor)
 
 export default instance
