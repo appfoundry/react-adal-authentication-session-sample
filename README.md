@@ -1,44 +1,181 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# react-adal-authentication-session-sample
+A tutorial on how to implement Authentication with ADAL in React Single Page Applications.
 
-## Available Scripts
+# Tutorial
 
-In the project directory, you can run:
+## First steps
 
-### `npm start`
+1. Initialize a React app, we used [Create React App](https://facebook.github.io/create-react-app/docs/getting-started) in this sample to reduce setup and in this case to be able to test implementations faster.
+2. Add the following plugins:
+  * [adal-angular](https://github.com/AzureAD/azure-activedirectory-library-for-js) (at the time of writing this tutorial the version was v1.0.17)
+  * [axios](https://github.com/axios/axios) (at the time of writing this tutorial the version was v0.18.0)
+  * Optional: [apisauce](https://github.com/infinitered/apisauce) (at the time of writing this tutorial the version was v0.16.0) (also contains the *axios* package so there’s no need to install *axios* separately if you install and use *apisauce*)
+3. Set up an AD in Azure with a **user or two to test with**
+4. Set up the necessary application project(s) in Azure, of which we will use the **tenant ID**, the **application ID** of the **client web app**, and the **application ID** of the **API app**.
+5. Set up a **config file** in your React application where we can place our Azure IDs and other configuration parameters.
+```js
+// src/config/AdalConfig.js
+export default {
+  clientId: 'ENTER THE APPLICATION ID OF THE REGISTERED WEB APP ON AZURE',
+  endpoints: {
+    api: "ENTER THE APPLICATION ID OF THE REGISTERED API APP ON AZURE" // Necessary for CORS requests, for more info see https://github.com/AzureAD/azure-activedirectory-library-for-js/wiki/CORS-usage
+  },
+  // 'tenant' is the Azure AD instance.
+  tenant: 'ENTER YOUR TENANT ID',
+  // 'cacheLocation' is set to 'sessionStorage' by default (see https://github.com/AzureAD/azure-activedirectory-library-for-js/wiki/Config-authentication-context#configurable-options).
+  // We change it to'localStorage' because 'sessionStorage' does not work when our app is served on 'localhost' in development.
+  cacheLocation: 'localStorage'
+}
+```
+> TIP: Use custom environment variables here! See [create-react-app's guide](https://facebook.github.io/create-react-app/docs/adding-custom-environment-variables) for more information.
 
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Initialize Adal Instance
+Next up, we will initialize the adal instance with the config we just defined.
 
-The page will reload if you make edits.<br>
-You will also see any lint errors in the console.
+First, some necessary imports:
+```js
+// src/services/Auth.js
+import AuthenticationContext from 'adal-angular'
+import AdalConfig from '../config/AdalConfig'
+```
 
-### `npm test`
+Second, we add some code so that the adal library can log to console.
+```js
+// We use this to enable logging in the adal library. When you're building for production, you should know that it's best to disable the logging.
+window.Logging.log = function(message) {
+  console.log(message); // this enables logging to the console
+}
+window.Logging.level = 2 // 0 = only error, 1 = up to warnings, 2 = up to info, 3 = up to verbose
+```
 
-Launches the test runner in the interactive watch mode.<br>
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Then, we initialize the adal instance by combining the *AuthenticationContext* class, exported from the adal library, with the *AdalConfig* we defined in the previous step.
+```js
+// Initialize the authentication
+export default new AuthenticationContext(AdalConfig)
+```
 
-### `npm run build`
+> Don't worry if `export default new AuthenticationContext(AdalConfig)` would initialize a new instance each time you import it -> webpack will build all our javascript code in one single file and imports will reference to single instances respectively.
 
-Builds the app for production to the `build` folder.<br>
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Initialize axios instance
 
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
+To make sure our network requests use the correct base url of the API, we create a config file with a certain *baseURL* parameter which we'll later use to initialize an axios instance.
+```js
+// src/config/ApiConfig.js
+export default {
+  baseURL: "ENTER BASE URL OF API HERE" // something like "http://my-host-name.xyz/api"
+}
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Next, use the *ApiConfig* to initialize an axios instance like so:
+```js
+// src/services/Api.js
+import axios from 'axios'
 
-### `npm run eject`
+import ApiConfig from '../config/ApiConfig'
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+const instance = axios.create(ApiConfig)
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+export default instance
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (Webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+Finally, we will import the axios instance, in whichever components we need it, to make api calls, for example in the *componentDidMount* section of the 'App' component:
+```js
+// src/App.js
+import Api from './services/Api'
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+class App extends Component {
+  componentDidMount() {
+    // Perform a network request on mount to easily test our setup
+    Api.get('/todos')
+  }
+```
 
-## Learn More
+## Render the React Application or redirect to login
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+After we’ve initialized everything we need, we can start coding the logic to successfully render the React application or to redirect the user to Microsoft’s login page.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+In index.js, import the AuthContext from our authentication service and the adal config to be able to use the IDs.
+```js
+// src/index.js
+import AdalConfig from './config/AdalConfig'
+import AuthContext from './services/Auth'
+```
+
+Add the following code to let the **adal library handle any possible callbacks** after logging in or (re-)acquiring tokens:
+```js
+// Handle possible callbacks on id_token or access_token
+AuthContext.handleWindowCallback()
+```
+
+Then we'll add some extra logic that we will only run when we are on the **parent window** and not in an iframe. If we were to allow it to run in iframes, which are used by adal to acquire tokens, then we would be stuck with multiple instances of our react app and we don’t want that.
+
+If we have **no logged in user** then we will **redirect the user to Microsoft's login page**. If we have a **logged in user** then we will **acquire an access token for our API** to see that everything works, **and** we will **render our React application**.
+
+This results in the following code:
+
+```js
+// Extra callback logic, only in the actual application, not in iframes in the app
+if ((window === window.parent) && window === window.top && !AuthContext.isCallback(window.location.hash)) {
+  // Having both of these checks is to prevent having a token in localstorage, but no user.
+  if (!AuthContext.getCachedToken(AdalConfig.clientId) || !AuthContext.getCachedUser()) {
+    AuthContext.login()
+    // or render something that everyone can see
+    // ReactDOM.render(<PublicPartOfApp />, document.getElementById('root'))
+  } else {
+    AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
+      if (token) {
+        ReactDOM.render(<App />, document.getElementById('root'))
+      }
+    })
+  }
+}
+```
+> As you can see in the comments in the code, you can also choose to show a public page even when there is no logged in user. Instead of calling *AuthContext.login()* you can also render another React instance, for example a public landing page which has a specific button to be able to login later on...
+
+## Add interceptor to network requests
+
+To make sure our network requests to the backend API remain authenticated, we will add some logic to our axios instance.
+
+We will call adal’s *acquireToken* function each time a network request is made. Adal will return the valid access token or it will asynchronously fetch a new one if it is invalid. Once the token is available we will add it to the *Authorization* header of the network request.
+
+First, don't forget the necessary imports:
+```js
+// src/services/Api.js
+import AdalConfig from '../config/AdalConfig'
+import AuthContext from './Auth'
+```
+
+Then we can place the re-acquiring of tokens in a request [interceptor](https://github.com/axios/axios#interceptors) of the axios instance like so:
+```js
+// src/services/Api.js
+// Add a request interceptor
+instance.interceptors.request.use((config) => {
+  // Check and acquire a token before the request is sent
+  return new Promise((resolve, reject) => {
+    AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
+      if (!!token) {
+        config.headers.Authorization = `Bearer ${token}`
+        resolve(config)
+      } else {
+        // Do something with error of acquiring the token
+        reject(config)
+      }
+    })
+  })
+}, function(error) {
+  // Do something with error of the request
+  return Promise.reject(error)
+})
+```
+And that’s it! At this moment, your React SPA is ready to use authentication and session management with the adal library and Azure's Active Directory!
+
+## Special thanks to
+I would like to take a brief moment to thank [magnuf for his example on github](https://github.com/AzureAD/azure-activedirectory-library-for-js/issues/481), originally helping me on my way figuring all of this out.
+
+# Blogpost
+
+A blogpost of this tutorial can be found [here](https://www.appfoundry.be/blog/2018/11/24/authentication-with-adal-in-react-single-page-applications/).
+
+## License
+
+This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file.
