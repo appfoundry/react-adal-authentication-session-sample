@@ -21,6 +21,24 @@ if ((window === window.parent) && window === window.top && !AuthContext.isCallba
     } else {
       AuthContext.acquireToken(AdalConfig.endpoints.api, (message, token, msg) => {
         if (token) {
+          // Set the expiry time out 30 minutes from now
+          SessionHelper.setExpiry()
+          // At the initialisation of our app we start a session timeout function, which will be triggered after the amount of minutes set in our adal config.
+          // But first we'll provide a callback to execute at the timeout.
+          // On the callback we will check the token expiry time and log out the user if necessary.
+          SessionHelper.expiryTimeoutCallback = function() {
+            if (SessionHelper.isTokenExpiredOrNull) {
+              // clear the session helper
+              SessionHelper.removeExpiry()
+              SessionHelper.stopExpiryTimeout()
+              AuthContext.logOut()
+            } else {
+              SessionHelper.resetExpiryTimeout() // try again later
+            }
+          }
+          // Then we'll start the timer
+          SessionHelper.startExpiryTimeout()
+          // After we've prepared everything for the session helper, we render the authenticated part of our app
           ReactDOM.render(<App />, document.getElementById('root'))
         }
       })
