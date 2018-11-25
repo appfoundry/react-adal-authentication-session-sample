@@ -11,7 +11,7 @@ This branch is the [first part](https://www.appfoundry.be/blog/2018/11/24/authen
 2. Add the following plugins:
   * [adal-angular](https://github.com/AzureAD/azure-activedirectory-library-for-js) (at the time of writing this tutorial the version was v1.0.17)
   * [axios](https://github.com/axios/axios) (at the time of writing this tutorial the version was v0.18.0)
-  * Optional: [apisauce](https://github.com/infinitered/apisauce) (at the time of writing this tutorial the version was v1.0.0) (also contains the *axios* package so there’s no need to install *axios* separately if you install and use *Apisauce*)
+  * Optional: [apisauce](https://github.com/infinitered/apisauce) (at the time of writing this tutorial the version was v1.0.0) (also contains the *axios* package so there’s no need to install *axios* separately if you install and use *ApiSauce*)
 3. Set up an AD in Azure with a **user or two to test with**
 4. Set up the necessary application project(s) in Azure, of which we will use the **tenant ID**, the **application ID** of the **client web app**, and the **application ID** of the **API app**.
 5. Set up a **config file** in your React application where we can place our Azure IDs and other configuration parameters.
