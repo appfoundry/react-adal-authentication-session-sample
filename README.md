@@ -68,7 +68,7 @@ Following on that, if a user is logged in and we are ready to render the authent
 
 You could also do these things later in some componentDidMount function in your app, but then it's possible that it ("it" being the lack of an expiry value in the storage before rendering the application) trips up logic protecting our authenticated backend calls.
 
-If the token is not expired or is null (while it actually should not be null, and expired) at the moment the timeout is triggered, we restart it to try again later (granted, this isn't handled that well but for a first version it'll do and we'll later see why). This can happen when an other tab has reset the expiry, but obviously can't reset the timer in the original tab, causing the original tab to be in a 'limbo' state: its user is logged out but the application is still shown. Restarting and retrying later is our way of making sure all tabs are, eventually, on the “login page” of Microsoft.
+If the token is not expired or is null (while it actually should not be null, and expired) at the moment the timeout is triggered, we restart it to try again later (granted, this isn't handled that well but for a first version it'll do and we'll later see why). This can happen when an other tab has reset the expiry, but obviously can't reset the timer in the original tab, causing the original tab to be in a 'limbo' state: its user is logged out but the application is still shown. Restarting and retrying later is our way of making sure all tabs are, eventually, on Microsoft's login page.
 
 ```js
 // src/index.js
@@ -118,9 +118,9 @@ instance.addMonitor(timeoutMonitor)
 
 Our final step is to block network requests when the expiry from our storage has passed. (See [Stop automatic login](#stop-automatic-login) above)
 
-We can add this protection by adding a [request transform](https://github.com/infinitered/apisauce#request-transforms), which will double check if the expiry from the session helper has been expired or is null (is null means that a user was already logged out, for example when there were multiple tabs of the SPA opened and one of them triggered the timeout after enough inactivity) in combination with the [CancelToken](https://github.com/axios/axios#cancellation) of axios. This CancelToken gives us the opportunity to block these network requests, just in case.
+We can add this protection by adding a [request transform](https://github.com/infinitered/apisauce#request-transforms), which will double check if the expiry from the session helper has been expired or is null (*null* could mean that a user was already logged out, for example when there were multiple tabs of the SPA opened and one of them triggered the timeout after enough inactivity) in combination with the [CancelToken](https://github.com/axios/axios#cancellation) of axios. This CancelToken gives us the opportunity to block these network requests, just in case.
 
-First, we will set up the *CancelToken*, which we will need to import from axios, in the Api.js file under /services.
+First, we will set up the *CancelToken*, which we will need to import from apisauce, in the Api.js file under /services.
 ```js
 // src/services/Api.js
 import { CancelToken } from 'axios'
@@ -160,8 +160,6 @@ And that's it! Your SPA now has
 * which can be prolonged as long as the user is active
 * with automatic logout and blocking network requests once expired
 * and disables automatic login via ADAL!
-
-# Blogpost
 
 # Want to know how to do authentication with ADAL in React SPAs?
 

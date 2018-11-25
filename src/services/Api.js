@@ -1,6 +1,5 @@
 // src/services/Api.js
-import ApiSauce from 'apisauce'
-import { CancelToken } from 'axios'
+import ApiSauce, { CancelToken } from 'apisauce'
 
 import ApiConfig from '../config/ApiConfig'
 import AdalConfig from '../config/AdalConfig'
@@ -30,7 +29,7 @@ instance.addAsyncRequestTransform((config) => {
       }
     })
   })
-}, function(error) {
+}, function (error) {
   // Do something with error of the request
   return Promise.reject(error)
 })
