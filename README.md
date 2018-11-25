@@ -7,11 +7,11 @@ This branch is the [first part](https://www.appfoundry.be/blog/2018/11/24/authen
 
 ## First steps
 
-1. Initialize a React app, we used [Create React App](https://facebook.github.io/create-react-app/docs/getting-started) in this sample to reduce setup and in this case to be able to test implementations faster.
+1. Initialize a React app, we used [create-react-app](https://facebook.github.io/create-react-app/docs/getting-started) in this sample to reduce setup and in this case to be able to test implementations faster.
 2. Add the following plugins:
   * [adal-angular](https://github.com/AzureAD/azure-activedirectory-library-for-js) (at the time of writing this tutorial the version was v1.0.17)
   * [axios](https://github.com/axios/axios) (at the time of writing this tutorial the version was v0.18.0)
-  * Optional: [apisauce](https://github.com/infinitered/apisauce) (at the time of writing this tutorial the version was v0.16.0) (also contains the *axios* package so there’s no need to install *axios* separately if you install and use *apisauce*)
+  * Optional: [apisauce](https://github.com/infinitered/apisauce) (at the time of writing this tutorial the version was v1.0.0) (also contains the *axios* package so there’s no need to install *axios* separately if you install and use *Apisauce*)
 3. Set up an AD in Azure with a **user or two to test with**
 4. Set up the necessary application project(s) in Azure, of which we will use the **tenant ID**, the **application ID** of the **client web app**, and the **application ID** of the **API app**.
 5. Set up a **config file** in your React application where we can place our Azure IDs and other configuration parameters.
@@ -29,7 +29,7 @@ export default {
   cacheLocation: 'localStorage'
 }
 ```
-> TIP: Use custom environment variables here! See [create-react-app's guide](https://facebook.github.io/create-react-app/docs/adding-custom-environment-variables) for more information.
+> TIP: Use custom environment variables here! See [Create React App's guide](https://facebook.github.io/create-react-app/docs/adding-custom-environment-variables) for more information.
 
 ## Initialize Adal Instance
 Next up, we will initialize the adal instance with the config we just defined.
@@ -56,7 +56,7 @@ Then, we initialize the adal instance by combining the *AuthenticationContext* c
 export default new AuthenticationContext(AdalConfig)
 ```
 
-> Don't worry if `export default new AuthenticationContext(AdalConfig)` would initialize a new instance each time you import it -> webpack will build all our javascript code in one single file and imports will reference to single instances respectively.
+> Don't worry if `export default new AuthenticationContext(AdalConfig)` would initialize a new instance each time you import it -> webpack will build all our javascript code in one file and imports will reference to single instances respectively.
 
 ## Initialize axios instance
 
@@ -96,7 +96,7 @@ class App extends Component {
 
 After we’ve initialized everything we need, we can start coding the logic to successfully render the React application or to redirect the user to Microsoft’s login page.
 
-In index.js, import the AuthContext from our authentication service and the adal config to be able to use the IDs.
+In index.js, import the AuthContext from our authentication service and the *AdalConfig* to be able to use the IDs.
 ```js
 // src/index.js
 import AdalConfig from './config/AdalConfig'
@@ -109,7 +109,7 @@ Add the following code to let the **adal library handle any possible callbacks**
 AuthContext.handleWindowCallback()
 ```
 
-Then we'll add some extra logic that we will only run when we are on the **parent window** and not in an iframe. If we were to allow it to run in iframes, which are used by adal to acquire tokens, then we would be stuck with multiple instances of our react app and we don’t want that.
+Then we'll add some extra logic that we will only run when we are on the **parent window** and not in an iframe. If we were to allow it to run in iframes, which are used by adal to acquire tokens, then we would be stuck with multiple instances of our React app and we don’t want that.
 
 If we have **no logged in user** then we will **redirect the user to Microsoft's login page**. If we have a **logged in user** then we will **acquire an access token for our API** to see that everything works, **and** we will **render our React application**.
 
@@ -169,14 +169,14 @@ instance.interceptors.request.use((config) => {
   return Promise.reject(error)
 })
 ```
-And that’s it! At this moment, your React SPA is ready to use authentication and session management with the adal library and Azure's Active Directory!
+And that’s it! At this moment, your React SPA is ready to use authentication with the adal-angular library and Azure's Active Directory!
 
 ## Special thanks to
 I would like to take a brief moment to thank [magnuf for his example on github](https://github.com/AzureAD/azure-activedirectory-library-for-js/issues/481), originally helping me on my way figuring all of this out.
 
 # Want to do adjustments to the session timeout?
 
-Then follow [this link](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/) and/or the [Session-Management-with-ADAL-in-React-SPA](https://github.com/appfoundry/react-adal-authentication-session-sample/tree/Session-Management-with-ADAL-in-React-SPA) branch to part 2 of this tutorial!
+Then follow [this link](https://www.appfoundry.be/blog/2018/11/24/session-management-in-react-single-page-applications/) and/or the [Session-Management-with-ADAL-in-React-SPA](https://github.com/appfoundry/react-adal-authentication-session-sample/tree/Session-Management-with-ADAL-in-React-SPA) branch to part 2 of this tutorial, where I explain how to add session management!
 
 # Blogposts
 
